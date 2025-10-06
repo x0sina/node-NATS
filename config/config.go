@@ -22,6 +22,15 @@ type Config struct {
 	Debug               bool
 	GeneratedConfigPath string
 	LogBufferSize       int
+	// NATS Configuration
+	NATSEnabled   bool
+	NATSServers   string
+	NATSAuthToken string
+	NATSUseTLS    bool
+	NATSTLSCert   string
+	NATSTLSKey    string
+	NATSTLSCa     string
+	NodeID        string
 }
 
 func Load() (*Config, error) {
@@ -40,6 +49,15 @@ func Load() (*Config, error) {
 		ServiceProtocol:     GetEnv("SERVICE_PROTOCOL", "grpc"),
 		Debug:               GetEnvAsBool("DEBUG", false),
 		LogBufferSize:       GetEnvAsInt("LOG_BUFFER_SIZE", 1000),
+		// NATS Configuration
+		NATSEnabled:   GetEnvAsBool("NATS_ENABLED", false),
+		NATSServers:   GetEnv("NATS_SERVERS", "nats://localhost:4222"),
+		NATSAuthToken: GetEnv("NATS_AUTH_TOKEN", ""),
+		NATSUseTLS:    GetEnvAsBool("NATS_USE_TLS", false),
+		NATSTLSCert:   GetEnv("NATS_TLS_CERT", ""),
+		NATSTLSKey:    GetEnv("NATS_TLS_KEY", ""),
+		NATSTLSCa:     GetEnv("NATS_TLS_CA", ""),
+		NodeID:        GetEnv("NODE_ID", "node1"),
 	}
 
 	cfg.ApiKey, err = GetEnvAsUUID("API_KEY")
