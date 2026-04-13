@@ -14,19 +14,16 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make NAME=main build
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make install_xray
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} TELEMT_REPOSITORY=${TELEMT_REPOSITORY} TELEMT_VERSION=${TELEMT_VERSION} make install_telemt
 
 FROM alpine:latest
 
 LABEL org.opencontainers.image.source="https://github.com/PasarGuard/node"
 
-RUN apk update && apk add --no-cache ca-certificates wireguard-tools nftables iproute2 procps
+RUN apk update && apk add --no-cache ca-certificates
 
 WORKDIR /app
 COPY --from=builder /src /app
-COPY --from=builder /usr/local/bin/xray /usr/local/bin/xray
 COPY --from=builder /usr/local/bin/telemt /usr/local/bin/telemt
-COPY --from=builder /usr/local/share/xray /usr/local/share/xray
 
 ENTRYPOINT ["./main"]

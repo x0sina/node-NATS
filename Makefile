@@ -6,6 +6,8 @@ MAIN = ./main.go
 PREFIX ?= $(shell go env GOPATH)
 XRAY_OS ?=
 XRAY_ARCH ?=
+TELEMT_REPOSITORY ?= telemt/telemt
+TELEMT_VERSION ?= latest
 # Map GOARCH to installer arch flag (pure make vars to avoid shell leakage)
 XRAY_ARCH_MAP_amd64   = 64
 XRAY_ARCH_MAP_386     = 32
@@ -22,10 +24,15 @@ XRAY_ARCH_MAP_ppc64   = ppc64
 XRAY_ARCH_MAP_ppc64le = ppc64le
 XRAY_ARCH_MAP_riscv64 = riscv64
 XRAY_ARCH_MAP_s390x   = s390x
+TELEMT_ARCH_MAP_amd64 = x86_64
+TELEMT_ARCH_MAP_arm64 = aarch64
 
 XRAY_OS_EFFECTIVE   := $(if $(XRAY_OS),$(XRAY_OS),$(GOOS))
 XRAY_ARCH_EFFECTIVE := $(if $(XRAY_ARCH),$(XRAY_ARCH),$(XRAY_ARCH_MAP_$(GOARCH)))
 XRAY_INSTALL_ARGS   := $(strip $(if $(XRAY_OS_EFFECTIVE),--os $(XRAY_OS_EFFECTIVE)) $(if $(XRAY_ARCH_EFFECTIVE),--arch $(XRAY_ARCH_EFFECTIVE)))
+TELEMT_OS_EFFECTIVE := $(if $(GOOS),$(GOOS),$(shell go env GOOS))
+TELEMT_GOARCH_EFFECTIVE := $(if $(GOARCH),$(GOARCH),$(shell go env GOARCH))
+TELEMT_ARCH_EFFECTIVE := $(TELEMT_ARCH_MAP_$(TELEMT_GOARCH_EFFECTIVE))
 
 ifeq ($(GOOS),windows)
 OUTPUT = $(NAME).exe
@@ -124,6 +131,51 @@ ifeq ($(UNAME_S),Linux)
 		curl -L https://github.com/PasarGuard/scripts/raw/main/install_core.sh | bash -s -- $(XRAY_INSTALL_ARGS); \
 	fi
 
+else
+	@echo "Unsupported operating system: $(UNAME_S)"
+	@exit 1
+endif
+
+install_telemt: update_os
+ifeq ($(UNAME_S),Linux)
+	@if [ "$(TELEMT_OS_EFFECTIVE)" != "linux" ]; then \
+		echo "Unsupported TELEMT target OS: $(TELEMT_OS_EFFECTIVE)"; \
+		exit 1; \
+	fi
+	@if [ -z "$(TELEMT_ARCH_EFFECTIVE)" ]; then \
+		echo "Unsupported TELEMT target architecture: $(TELEMT_GOARCH_EFFECTIVE)"; \
+		exit 1; \
+	fi
+	@set -eu; \
+		telemt_asset="telemt-$(TELEMT_ARCH_EFFECTIVE)-linux-musl.tar.gz"; \
+		telemt_release="$(TELEMT_VERSION)"; \
+		telemt_release="$${telemt_release#refs/tags/}"; \
+		if [ -z "$${telemt_release}" ] || [ "$${telemt_release}" = "latest" ]; then \
+			telemt_base_url="https://github.com/$(TELEMT_REPOSITORY)/releases/latest/download"; \
+		else \
+			telemt_base_url="https://github.com/$(TELEMT_REPOSITORY)/releases/download/$${telemt_release}"; \
+		fi; \
+		tmp_dir="$$(mktemp -d)"; \
+		trap 'rm -rf "$$tmp_dir"' EXIT; \
+		curl -fL \
+			--retry 5 \
+			--retry-delay 3 \
+			--connect-timeout 10 \
+			--max-time 120 \
+			-o "$$tmp_dir/$$telemt_asset" \
+			"$$telemt_base_url/$$telemt_asset"; \
+		curl -fL \
+			--retry 5 \
+			--retry-delay 3 \
+			--connect-timeout 10 \
+			--max-time 120 \
+			-o "$$tmp_dir/$$telemt_asset.sha256" \
+			"$$telemt_base_url/$$telemt_asset.sha256"; \
+		( cd "$$tmp_dir" && sha256sum -c "$$telemt_asset.sha256" ); \
+		tar -xzf "$$tmp_dir/$$telemt_asset" -C "$$tmp_dir"; \
+		test -f "$$tmp_dir/telemt"; \
+		if [ "$$(id -u)" -eq 0 ]; then install_cmd="install"; else install_cmd="sudo install"; fi; \
+		$$install_cmd -m 0755 "$$tmp_dir/telemt" /usr/local/bin/telemt
 else
 	@echo "Unsupported operating system: $(UNAME_S)"
 	@exit 1
