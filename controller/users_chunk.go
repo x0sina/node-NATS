@@ -21,9 +21,5 @@ func BuildUsersFromChunks(chunks map[uint64][]*common.User, lastIndex uint64, sa
 		users = append(users, chunkUsers...)
 	}
 
-	if len(users) == 0 {
-		return nil, fmt.Errorf("no users received")
-	}
-
 	return users, nil
 }

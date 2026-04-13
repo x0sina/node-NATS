@@ -46,3 +46,17 @@ func TestBuildUsersFromChunksMissingChunk(t *testing.T) {
 		t.Fatalf("expected missing chunk index error, got: %v", err)
 	}
 }
+
+func TestBuildUsersFromChunksAllowsExplicitEmptyFinalChunk(t *testing.T) {
+	chunks := map[uint64][]*common.User{
+		0: {},
+	}
+
+	users, err := BuildUsersFromChunks(chunks, 0, true)
+	if err != nil {
+		t.Fatalf("expected empty chunk payload to be accepted, got error: %v", err)
+	}
+	if len(users) != 0 {
+		t.Fatalf("expected zero users, got %d", len(users))
+	}
+}
